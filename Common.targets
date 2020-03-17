@@ -6,18 +6,12 @@
   </PropertyGroup>
   <PropertyGroup>
     <Product>K4os.Async.Batch</Product>
-    <Authors>...</Authors>
-    <Copyright>...</Copyright>
-    <Description>...</Description>
-    <RepositoryUrl>https://.../K4os.Async.Batch</RepositoryUrl>
+    <Authors>Milosz Krajewski</Authors>
+    <Copyright>Milosz Krajewski</Copyright>
+    <Description>Batch operation builder</Description>
+    <RepositoryUrl>https://github.com/MiloszKrajewski/K4os.Async.Batch</RepositoryUrl>
   </PropertyGroup>
-  <PropertyGroup>
-    <!--
-    <PackageId>K4os.Async.Batch</PackageId>
-    <PackageTags>...</PackageTags>
-    <PackageLicenseUrl>https://.../LICENSE</PackageLicenseUrl>
-    <PackageProjectUrl>https://.../K4os.Async.Batch</PackageProjectUrl>
-    <PackageIconUrl>https://.../K4os.Async.Batch/icon.png</PackageIconUrl>
-    -->
-  </PropertyGroup>
+  <ItemGroup>
+    <None Remove="*.?sproj.DotSettings" />
+  </ItemGroup>
 </Project>

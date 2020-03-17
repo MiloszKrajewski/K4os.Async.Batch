@@ -2,8 +2,15 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>netstandard1.6;netstandard2.0;net46</TargetFrameworks>
-    <AllowUnsafeCode>true</AllowUnsafeCode>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PackageId>K4os.Async.Batch</PackageId>
+    <PackageTags>async batch</PackageTags>
+    <PackageLicenseUrl>https://raw.githubusercontent.com/MiloszKrajewski/K4os.Async.Batch/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/MiloszKrajewski/K4os.Async.Batch</PackageProjectUrl>
+    <!--<PackageIconUrl>https://.../K4os.Async.Batch/icon.png</PackageIconUrl>-->
   </PropertyGroup>
   <Import Project="..\..\Common.targets" />
+  <Import Project="..\..\Signing.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

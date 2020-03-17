@@ -19,9 +19,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".build", ".build", "{835ECD
 		..\LICENSE = ..\LICENSE
 		..\settings.cfg = ..\settings.cfg
 		..\.gitignore = ..\.gitignore
+		..\Signing.targets = ..\Signing.targets
 	EndProjectSection
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "K4os.Async.Batch.App", "K4os.Async.Batch.App\K4os.Async.Batch.App.csproj", "{781A518E-3D40-4899-A2CC-9D552FBEB872}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -37,10 +36,6 @@ Global
 		{1682B37B-25DE-415E-8C36-1CEA7C442CB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1682B37B-25DE-415E-8C36-1CEA7C442CB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1682B37B-25DE-415E-8C36-1CEA7C442CB9}.Release|Any CPU.Build.0 = Release|Any CPU
-		{781A518E-3D40-4899-A2CC-9D552FBEB872}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{781A518E-3D40-4899-A2CC-9D552FBEB872}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{781A518E-3D40-4899-A2CC-9D552FBEB872}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{781A518E-3D40-4899-A2CC-9D552FBEB872}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
