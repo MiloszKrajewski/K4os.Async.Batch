@@ -23,7 +23,7 @@ namespace K4os.Async.Batch
 		/// <typeparam name="TRequest">Type of request.</typeparam>
 		/// <typeparam name="TResponse">Type of response.</typeparam>
 		/// <returns>Batch builder.</returns>
-		public IBatchBuilder<TRequest, TResponse> Create<TId, TRequest, TResponse>(
+		public static IBatchBuilder<TRequest, TResponse> Create<TId, TRequest, TResponse>(
 			Func<TRequest, TId> requestId,
 			Func<TResponse, TId> responseId,
 			Func<TRequest[], Task<TResponse[]>> requestMany,
@@ -40,7 +40,7 @@ namespace K4os.Async.Batch
 		/// <typeparam name="TRequest">Type of request.</typeparam>
 		/// <typeparam name="TResponse">Type of response.</typeparam>
 		/// <returns>Batch builder.</returns>
-		public IBatchBuilder<TRequest, TResponse> Create<TRequest, TResponse>(
+		public static IBatchBuilder<TRequest, TResponse> Create<TRequest, TResponse>(
 			Func<TResponse, TRequest> responseId,
 			Func<TRequest[], Task<TResponse[]>> requestMany,
 			int batchSize = 128,
