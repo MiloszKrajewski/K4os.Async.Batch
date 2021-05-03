@@ -18,13 +18,14 @@ namespace K4os.Async.Batch
 		public static void CancelAndWait(this CancellationTokenSource token, Task task)
 		{
 			token.Cancel();
+			
 			try
 			{
-				task.Wait();
+				task.GetAwaiter().GetResult();
 			}
-			catch (AggregateException ae)
+			catch (OperationCanceledException) when (token.IsCancellationRequested)
 			{
-				ae.Handle(e => (e as OperationCanceledException)?.CancellationToken == token.Token);
+				// ignore
 			}
 		}
 
@@ -49,5 +50,10 @@ namespace K4os.Async.Batch
 			this IDictionary<TKey, TValue> dictionary, TKey key,
 			TValue defaultValue = default) =>
 			dictionary.TryGetValue(key, out var result) ? result : defaultValue;
+
+		public static void ForEach<T>(this IEnumerable<T> sequence, Action<T> action)
+		{
+			foreach (var item in sequence) action(item);
+		}
 	}
 }

@@ -124,7 +124,7 @@ namespace K4os.Async.Batch
 				token.ThrowIfCancellationRequested();
 				var requests = _requests.TryDequeueMany(length);
 				var count = requests?.Count ?? 0;
-				if (requests != null && count > 0)
+				if (requests is not null && count > 0)
 				{
 					if (delay.HasValue && count < length)
 					{
