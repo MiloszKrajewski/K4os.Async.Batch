@@ -7,6 +7,7 @@
     nuget Fake.DotNet.MSBuild
     nuget Fake.DotNet.Cli
     nuget Fake.DotNet.Testing.XUnit2
+    nuget Octokit 0.48
 //"
 
 #load "build.imports.fsx"
@@ -31,7 +32,7 @@ let release () = packages |> Proj.packMany
 let publish apiKey = packages |> Seq.iter (Proj.publishNugetOrg apiKey)
 
 Target.create "Refresh" (fun _ ->
-    Proj.regenerateStrongName "K4os.Async.Batch.snk"
+    // Proj.regenerateStrongName "K4os.Async.Batch.snk"
     Proj.updateCommonTargets "Common.targets"
 )
 
@@ -66,6 +67,7 @@ Target.create "Release:GitHub" (fun _ ->
 open Fake.Core.TargetOperators
 
 "Refresh" ==> "Restore" ==> "Build" ==> "Rebuild" ==> "Test" ==> "Release"
+"Release" ==> "Release:GitHub" ==> "Release:Nuget"
 "Clean" ==> "Rebuild"
 
 "Clean" ?=> "Restore"

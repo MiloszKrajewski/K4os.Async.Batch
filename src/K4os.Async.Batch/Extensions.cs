@@ -1,13 +1,29 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
+
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+using System.Diagnostics.CodeAnalysis;
+#endif
 
 namespace K4os.Async.Batch
 {
 	internal static class Extensions
 	{
+		public static async Task<List<T>?> ReadManyAsync<T>(
+			this ChannelReader<T> reader, int length = int.MaxValue)
+		{
+			var ready = await reader.WaitToReadAsync();
+			if (!ready) return null;
+
+			var list = default(List<T>);
+			while (length-- > 0 && reader.TryRead(out var item))
+				(list ??= new List<T>()).Add(item);
+
+			return list;
+		}
+
 		public static void Forget(this Task task)
 		{
 			task.ContinueWith(
@@ -15,45 +31,23 @@ namespace K4os.Async.Batch
 				TaskContinuationOptions.NotOnRanToCompletion);
 		}
 
-		public static void CancelAndWait(this CancellationTokenSource token, Task task)
-		{
-			token.Cancel();
-			
-			try
-			{
-				task.GetAwaiter().GetResult();
-			}
-			catch (OperationCanceledException) when (token.IsCancellationRequested)
-			{
-				// ignore
-			}
-		}
-
 		public static T Required<T>(this T argument, string argumentName) where T: class =>
 			argument ?? throw new ArgumentNullException(argumentName);
 
-		public static IList<T> TryDequeueMany<T>(
-			this ConcurrentQueue<T> queue, int length = int.MaxValue)
-		{
-			var left = length;
-			var result = default(IList<T>);
-			while (left > 0 && queue.TryDequeue(out var item))
-			{
-				(result = result ?? new List<T>()).Add(item);
-				left--;
-			}
+		public static T[] EmptyIfNull<T>(this T[]? argument) =>
+			argument ?? Array.Empty<T>();
 
-			return result;
-		}
-
-		public static TValue TryGetOrDefault<TKey, TValue>(
-			this IDictionary<TKey, TValue> dictionary, TKey key,
-			TValue defaultValue = default) =>
-			dictionary.TryGetValue(key, out var result) ? result : defaultValue;
+		#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+		[return: NotNullIfNotNull("fallback")]
+		#endif
+		public static TValue? TryGetOrDefault<TKey, TValue>(
+			this IDictionary<TKey, TValue> dictionary, TKey key, TValue? fallback = default) =>
+			dictionary.TryGetValue(key, out var result) ? result : fallback;
 
 		public static void ForEach<T>(this IEnumerable<T> sequence, Action<T> action)
 		{
-			foreach (var item in sequence) action(item);
+			foreach (var item in sequence)
+				action(item);
 		}
 	}
 }

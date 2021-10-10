@@ -1,10 +1,9 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
-using Nito.AsyncEx;
 
 namespace K4os.Async.Batch
 {
@@ -28,7 +27,8 @@ namespace K4os.Async.Batch
 			Func<TResponse, TId> responseId,
 			Func<TRequest[], Task<TResponse[]>> requestMany,
 			int batchSize = 128,
-			int concurrency = 1) =>
+			int concurrency = 1)
+			where TId: notnull =>
 			new BatchBuilder<TId, TRequest, TResponse>(
 				requestId, responseId, requestMany, batchSize, concurrency);
 
@@ -44,7 +44,8 @@ namespace K4os.Async.Batch
 			Func<TResponse, TRequest> responseId,
 			Func<TRequest[], Task<TResponse[]>> requestMany,
 			int batchSize = 128,
-			int concurrency = 1) =>
+			int concurrency = 1)
+			where TRequest: notnull =>
 			new BatchBuilder<TRequest, TRequest, TResponse>(
 				r => r, responseId, requestMany, batchSize, concurrency);
 	}
@@ -64,15 +65,15 @@ namespace K4os.Async.Batch
 	/// <typeparam name="TId">Request id (used to match request with responses).</typeparam>
 	/// <typeparam name="TRequest">Type of request.</typeparam>
 	/// <typeparam name="TResponse">Type of response.</typeparam>
-	public class BatchBuilder<TId, TRequest, TResponse>: IBatchBuilder<TRequest, TResponse>
+	public class BatchBuilder<TId, TRequest, TResponse>:
+		IBatchBuilder<TRequest, TResponse>
+		where TId: notnull
 	{
 		private readonly Func<TRequest, TId> _requestId;
 		private readonly Func<TResponse, TId> _responseId;
 		private readonly Func<TRequest[], Task<TResponse[]>> _requestMany;
-		private readonly ConcurrentQueue<Mailbox> _requests;
-		private readonly AsyncManualResetEvent _available;
+		private readonly Channel<Mailbox> _channel;
 		private readonly SemaphoreSlim _semaphore;
-		private readonly CancellationTokenSource _cancel;
 		private readonly Task _loop;
 
 		/// <summary>
@@ -83,64 +84,42 @@ namespace K4os.Async.Batch
 		/// <param name="requestMany">Actual batch operation.</param>
 		/// <param name="batchSize">Maximum batch size.</param>
 		/// <param name="concurrency">Number of concurrent batch requests.</param>
-		/// <param name="delay">Delay request to build bigger batch.</param>
 		public BatchBuilder(
 			Func<TRequest, TId> requestId,
 			Func<TResponse, TId> responseId,
 			Func<TRequest[], Task<TResponse[]>> requestMany,
 			int batchSize = 128,
-			int concurrency = 1,
-			TimeSpan? delay = null)
+			int concurrency = 1)
 		{
 			_requestId = requestId.Required(nameof(requestId));
 			_responseId = responseId.Required(nameof(responseId));
 			_requestMany = requestMany.Required(nameof(requestMany));
-			_requests = new ConcurrentQueue<Mailbox>();
-			_available = new AsyncManualResetEvent(false);
-			_cancel = new CancellationTokenSource();
+			// _requests = new ConcurrentQueue<Mailbox>();
+			// _available = new AsyncManualResetEvent(false);
+			_channel = Channel.CreateUnbounded<Mailbox>();
 			_semaphore = new SemaphoreSlim(Math.Max(concurrency, 1));
-			_loop = RequestLoop(_cancel.Token, batchSize, delay);
+			_loop = RequestLoop(batchSize);
 		}
 
 		/// <summary>Execute a request/call inside a batch.</summary>
 		/// <param name="request">A request.</param>
 		/// <returns>Response.</returns>
-		public Task<TResponse> Request(TRequest request)
+		public async Task<TResponse> Request(TRequest request)
 		{
-			_cancel.Token.ThrowIfCancellationRequested();
 			var box = new Mailbox(request);
-			_requests.Enqueue(box);
-			_available.Set();
-			return box.Response.Task;
+			await _channel.Writer.WriteAsync(box);
+			return await box.Response.Task;
 		}
 
-		private async Task RequestLoop(CancellationToken token, int length, TimeSpan? delay)
+		private async Task RequestLoop(int length)
 		{
-			while (true)
+			while (!_channel.Reader.Completion.IsCompleted)
 			{
-				if (token.IsCancellationRequested && _requests.IsEmpty)
-					return;
+				var requests = await _channel.Reader.ReadManyAsync(length);
+				if (requests is null) continue;
 
-				token.ThrowIfCancellationRequested();
-				var requests = _requests.TryDequeueMany(length);
-				var count = requests?.Count ?? 0;
-				if (requests is not null && count > 0)
-				{
-					if (delay.HasValue && count < length)
-					{
-						await Task.Delay(delay.Value, token);
-						_requests.TryDequeueMany(length - count)?.ForEach(requests.Add);
-					}
-
-					await _semaphore.WaitAsync(token);
-					RequestMany(requests).Forget();
-				}
-				else
-				{
-					_available.Reset();
-					if (_requests.IsEmpty) await _available.WaitAsync(token);
-					_available.Set();
-				}
+				await _semaphore.WaitAsync();
+				RequestMany(requests).Forget();
 			}
 		}
 
@@ -164,7 +143,7 @@ namespace K4os.Async.Batch
 					var handled = MarkAsComplete(responses, map);
 					var missing = keys
 						.Except(handled)
-						.SelectMany(k => map.TryGetOrDefault(k));
+						.SelectMany(k => map.TryGetOrDefault(k).EmptyIfNull());
 					MarkAsNotFound(missing);
 				}
 				catch (Exception e)
@@ -209,7 +188,11 @@ namespace K4os.Async.Batch
 		}
 
 		/// <inheritdoc/>
-		public void Dispose() { _cancel.CancelAndWait(_loop); }
+		public void Dispose()
+		{
+			_channel.Writer.Complete();
+			_loop.Wait();
+		}
 
 		#region class Mailbox
 

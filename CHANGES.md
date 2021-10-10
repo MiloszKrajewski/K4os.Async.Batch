@@ -1,3 +1,6 @@
+## 0.0.4 (2021/10/10)
+* reimplemented with System.Threading.Channels
+
 ## 0.0.3 (2021/04/02)
 * removed dependency on System.Interactive
 * added net 5 as target

@@ -9,7 +9,7 @@ nuget Microsoft.Extensions.Logging.Abstractions
 
 nuget System.Reactive
 nuget System.Interactive
-nuget Nito.AsyncEx
+nuget System.Threading.Channels
 
 nuget Microsoft.NET.Test.Sdk
 nuget xunit
