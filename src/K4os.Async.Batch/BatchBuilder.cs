@@ -10,8 +10,12 @@ namespace K4os.Async.Batch
 	/// <summary>
 	/// Batch builder factory.
 	/// </summary>
-	public class BatchBuilder
+	public static class BatchBuilder
 	{
+		internal static readonly UnboundedChannelOptions ChannelOptions = new() {
+			SingleReader = true,
+		};
+
 		/// <summary>Creates new batch builder.</summary>
 		/// <param name="requestId">Extracts request id from request.</param>
 		/// <param name="responseId">Extracts request id from response (to match with request)</param>
@@ -94,9 +98,7 @@ namespace K4os.Async.Batch
 			_requestId = requestId.Required(nameof(requestId));
 			_responseId = responseId.Required(nameof(responseId));
 			_requestMany = requestMany.Required(nameof(requestMany));
-			// _requests = new ConcurrentQueue<Mailbox>();
-			// _available = new AsyncManualResetEvent(false);
-			_channel = Channel.CreateUnbounded<Mailbox>();
+			_channel = Channel.CreateUnbounded<Mailbox>(BatchBuilder.ChannelOptions);
 			_semaphore = new SemaphoreSlim(Math.Max(concurrency, 1));
 			_loop = RequestLoop(batchSize);
 		}
@@ -204,7 +206,8 @@ namespace K4os.Async.Batch
 			public Mailbox(TRequest request)
 			{
 				Request = request;
-				Response = new TaskCompletionSource<TResponse>();
+				Response = new TaskCompletionSource<TResponse>(
+					TaskCreationOptions.RunContinuationsAsynchronously);
 			}
 		}
 
