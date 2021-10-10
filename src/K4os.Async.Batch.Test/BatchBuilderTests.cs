@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestPlatform.PlatformAbstractions;
 using Xunit;
 
 namespace K4os.Async.Batch.Test
