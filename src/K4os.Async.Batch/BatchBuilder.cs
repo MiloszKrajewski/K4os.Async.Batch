@@ -144,7 +144,12 @@ namespace K4os.Async.Batch
 			return list;
 		}
 
-		protected virtual Task Delay(TimeSpan delay, CancellationToken token) => 
+		/// <summary>Creates delayed task with cancellation token.
+		/// Can be use to simulate time.</summary>
+		/// <param name="delay">Delay.</param>
+		/// <param name="token">Cancellation token.</param>
+		/// <returns>Task.</returns>
+		protected virtual Task Delay(TimeSpan delay, CancellationToken token) =>
 			Task.Delay(delay, token);
 
 		private async Task RequestMany(ICollection<Mailbox> requests)
