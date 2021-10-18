@@ -21,6 +21,7 @@ namespace K4os.Async.Batch
 		/// <param name="responseId">Extracts request id from response (to match with request)</param>
 		/// <param name="requestMany">Actual batch operation.</param>
 		/// <param name="batchSize">Maximum batch size.</param>
+		/// <param name="batchDelay">Maximum batch delay.</param>
 		/// <param name="concurrency">Number of concurrent batch requests.</param>
 		/// <typeparam name="TId">Type of request identifier.</typeparam>
 		/// <typeparam name="TRequest">Type of request.</typeparam>
@@ -31,15 +32,17 @@ namespace K4os.Async.Batch
 			Func<TResponse, TId> responseId,
 			Func<TRequest[], Task<TResponse[]>> requestMany,
 			int batchSize = 128,
+			TimeSpan batchDelay = default,
 			int concurrency = 1)
 			where TId: notnull =>
 			new BatchBuilder<TId, TRequest, TResponse>(
-				requestId, responseId, requestMany, batchSize, concurrency);
+				requestId, responseId, requestMany, batchSize, batchDelay, concurrency);
 
 		/// <summary>Creates new batch builder.</summary>
 		/// <param name="responseId">Extracts request id from response (to match with request)</param>
 		/// <param name="requestMany">Actual batch operation.</param>
 		/// <param name="batchSize">Maximum batch size.</param>
+		/// <param name="batchDelay">Maximum batch delay.</param>
 		/// <param name="concurrency">Number of concurrent batch requests.</param>
 		/// <typeparam name="TRequest">Type of request.</typeparam>
 		/// <typeparam name="TResponse">Type of response.</typeparam>
@@ -48,10 +51,11 @@ namespace K4os.Async.Batch
 			Func<TResponse, TRequest> responseId,
 			Func<TRequest[], Task<TResponse[]>> requestMany,
 			int batchSize = 128,
+			TimeSpan batchDelay = default,
 			int concurrency = 1)
 			where TRequest: notnull =>
 			new BatchBuilder<TRequest, TRequest, TResponse>(
-				r => r, responseId, requestMany, batchSize, concurrency);
+				r => r, responseId, requestMany, batchSize, batchDelay, concurrency);
 	}
 
 	/// <summary>Request batch builder.</summary>
@@ -87,12 +91,14 @@ namespace K4os.Async.Batch
 		/// <param name="responseId">Extracts request id from response (to match with request)</param>
 		/// <param name="requestMany">Actual batch operation.</param>
 		/// <param name="batchSize">Maximum batch size.</param>
+		/// <param name="batchDelay">Maximum batch delay.</param>
 		/// <param name="concurrency">Number of concurrent batch requests.</param>
 		public BatchBuilder(
 			Func<TRequest, TId> requestId,
 			Func<TResponse, TId> responseId,
 			Func<TRequest[], Task<TResponse[]>> requestMany,
 			int batchSize = 128,
+			TimeSpan batchDelay = default,
 			int concurrency = 1)
 		{
 			_requestId = requestId.Required(nameof(requestId));
@@ -100,7 +106,7 @@ namespace K4os.Async.Batch
 			_requestMany = requestMany.Required(nameof(requestMany));
 			_channel = Channel.CreateUnbounded<Mailbox>(BatchBuilder.ChannelOptions);
 			_semaphore = new SemaphoreSlim(Math.Max(concurrency, 1));
-			_loop = RequestLoop(batchSize);
+			_loop = Task.Run(() => RequestLoop(batchSize, batchDelay));
 		}
 
 		/// <summary>Execute a request/call inside a batch.</summary>
@@ -113,17 +119,33 @@ namespace K4os.Async.Batch
 			return await box.Response.Task;
 		}
 
-		private async Task RequestLoop(int length)
+		private async Task RequestLoop(int length, TimeSpan delay)
 		{
 			while (!_channel.Reader.Completion.IsCompleted)
 			{
-				var requests = await _channel.Reader.ReadManyAsync(length);
+				var requests = await ReadManyAsync(length, delay);
 				if (requests is null) continue;
 
 				await _semaphore.WaitAsync();
 				RequestMany(requests).Forget();
 			}
 		}
+
+		private async Task<List<Mailbox>?> ReadManyAsync(int length, TimeSpan delay)
+		{
+			var list = await _channel.Reader.ReadManyAsync(length);
+			if (list is null || list.Count >= length || delay <= TimeSpan.Zero)
+				return list;
+
+			using var cancel = new CancellationTokenSource();
+			using var window = Delay(delay, cancel.Token);
+			await _channel.Reader.ReadManyMoreAsync(list, length, window);
+			cancel.Cancel();
+			return list;
+		}
+
+		protected virtual Task Delay(TimeSpan delay, CancellationToken token) => 
+			Task.Delay(delay, token);
 
 		private async Task RequestMany(ICollection<Mailbox> requests)
 		{

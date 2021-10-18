@@ -18,10 +18,35 @@ namespace K4os.Async.Batch
 			if (!ready) return null;
 
 			var list = default(List<T>);
-			while (length-- > 0 && reader.TryRead(out var item))
-				(list ??= new List<T>()).Add(item);
+			Drain(reader, ref list, ref length);
 
 			return list;
+		}
+
+		public static async Task ReadManyMoreAsync<T>(
+			this ChannelReader<T> reader, List<T> list, int length, Task window)
+		{
+			var completed = reader.Completion;
+			length -= list.Count; // length left
+
+			while (length > 0)
+			{
+				Drain(reader, ref list!, ref length);
+
+				var ready = reader.WaitToReadAsync().AsTask();
+				var evt = await Task.WhenAny(window, completed, ready);
+				if (evt != ready) break;
+			}
+		}
+
+		private static void Drain<T>(
+			ChannelReader<T> reader, ref List<T>? list, ref int length)
+		{
+			while (length > 0 && reader.TryRead(out var item))
+			{
+				(list ??= new List<T>()).Add(item);
+				length--;
+			}
 		}
 
 		public static void Forget(this Task task)

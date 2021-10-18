@@ -1,3 +1,6 @@
+## 0.0.5 (2021/10/18)
+* added batchDelay
+
 ## 0.0.4 (2021/10/10)
 * reimplemented with System.Threading.Channels
 

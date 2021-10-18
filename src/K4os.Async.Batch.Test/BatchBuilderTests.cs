@@ -1,8 +1,12 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.TestPlatform.Common.DataCollection;
 using Xunit;
 
 namespace K4os.Async.Batch.Test
@@ -151,6 +155,67 @@ namespace K4os.Async.Batch.Test
 			{
 				await Assert.ThrowsAsync<ArgumentException>(() => tasks[r]);
 			}
+		}
+		
+		[Fact]
+		[SuppressMessage("ReSharper", "AccessToModifiedClosure")]
+		public async Task BatchCanBeDelayed()
+		{
+			var handled = 0;
+			int Read() => Interlocked.CompareExchange(ref handled, 0, 0);
+			int Inc(int value) => Interlocked.Add(ref handled, value);
+			
+			var builder = BatchBuilder.Create<int, int>(
+				r => r, Requester, 1000, TimeSpan.FromSeconds(1));
+
+			Task<int[]> Requester(int[] rl)
+			{
+				Inc(rl.Length);
+				return Task.FromResult(rl);
+			}
+
+			var tasks50 = Enumerable.Range(0, 50).Select(r => builder.Request(r)).ToArray();
+			
+			Assert.Equal(0, Read());
+
+			await Task.Delay(500);
+			
+			var tasks75 = Enumerable.Range(50, 25).Select(r => builder.Request(r)).ToArray();
+			
+			Assert.Equal(0, Read());
+
+			await Task.WhenAll(tasks50);
+			await Task.WhenAll(tasks75);
+			
+			Assert.Equal(75, Read());
+		}
+		
+		[Fact]
+		[SuppressMessage("ReSharper", "AccessToModifiedClosure")]
+		public async Task EvenDelayedBatchWillTriggerEarly()
+		{
+			var handled = 0;
+			int Read() => Interlocked.CompareExchange(ref handled, 0, 0);
+			int Inc(int value) => Interlocked.Add(ref handled, value);
+			
+			var builder = BatchBuilder.Create<int, int>(
+				r => r, Requester, 20, TimeSpan.FromSeconds(1));
+
+			Task<int[]> Requester(int[] rl)
+			{
+				Inc(rl.Length);
+				return Task.FromResult(rl);
+			}
+
+			_ = Enumerable.Range(0, 50).Select(r => builder.Request(r)).ToArray();
+			
+			await Task.Delay(100);
+			
+			Assert.Equal(40, Read());
+
+			await Task.Delay(1000);
+			
+			Assert.Equal(50, Read());
 		}
 	}
 }
